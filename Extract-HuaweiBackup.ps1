@@ -26,3 +26,20 @@ $file_structure | %{
     }
 }
 
+foreach ($file in $file_structure)
+{
+    if ($file.file_index -ne -1) #A file_index that isn't -1 means it's a file not a directory, and we need to extract the contents of it.
+    {
+        #Each file is stored as a series of chunks, each up to 8192 bytes in size. The data_index tells us which order the chunks need to be re-assembled in.
+        $file_data_records = Invoke-SqliteQuery -DataSource $BackupFile -Query "SELECT * FROM apk_file_data WHERE file_index = '$($file.file_index)' ORDER BY data_index ASC"
+
+        $outfilepath = Join-Path $ExtractDir $file.file_path
+        $outfile = [System.IO.File]::OpenWrite($outfilepath)
+
+        Write-Verbose "Extracting $($file.file_path)"
+        #Write the data chunks out to the file.
+        $file_data_records | %{ $outfile.Write($_.file_data, 0, $_.file_length) }
+
+        $outfile.Close()
+    }
+}
